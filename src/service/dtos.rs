@@ -3,7 +3,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum Network {
     Devnet,
-    Tesnet,
+    Testnet,
     Mainnet,
 }
 
@@ -64,7 +64,7 @@ impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Network::Devnet => write!(f, "devnet"),
-            Network::Tesnet => write!(f, "tesnet"),
+            Network::Testnet => write!(f, "testnet"),
             Network::Mainnet => write!(f, "mainnet"),
         }
     }
