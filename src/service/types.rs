@@ -1,4 +1,3 @@
-use crate::service::dtos::AddressResponse;
 use async_trait::async_trait;
 use sui_sdk::types::base_types::SuiAddress;
 use thiserror::Error;
@@ -30,6 +29,5 @@ pub type Result<T> = std::result::Result<T, ServiceError>;
 pub trait GoogleOauthProvider {
     async fn get_oauth_url(&mut self, redirect_url: String) -> Result<String>;
     fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String>;
-    async fn get_address(&self, jwt: &str) -> Result<AddressResponse>;
     async fn zk_proof(&self, jwt: &str) -> Result<SuiAddress>;
 }

@@ -39,14 +39,6 @@ pub struct NoncePayload {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddressResponse {
-    pub salt: String,
-    pub address: String,
-    pub public_key: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ZKPPayload {
     network: String,
     ephemeral_public_key: String,

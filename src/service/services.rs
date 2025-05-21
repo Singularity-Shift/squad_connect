@@ -1,7 +1,6 @@
 use super::{
     dtos::{
-        AddressResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData,
-        ZKPPayload, ZKPResponse,
+        EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload, ZKPResponse,
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
@@ -109,28 +108,6 @@ impl GoogleOauthProvider for Services {
             })?;
 
         Ok(id_token)
-    }
-
-    async fn get_address(&self, jwt: &str) -> Result<AddressResponse> {
-        // Validate the JWT and extract claims
-        let mut headers = HeaderMap::new();
-
-        headers.insert("Authorization", self.api_key.parse().unwrap());
-        headers.insert("zklogin-jwt", jwt.parse().unwrap());
-
-        let address_response = Client::new()
-            .get(&EnokiEndpoints::Address.to_string())
-            .headers(headers)
-            .send()
-            .await
-            .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
-
-        let address_data: ResponseData<AddressResponse> = address_response
-            .json()
-            .await
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
-
-        Ok(address_data.data)
     }
 
     async fn zk_proof(&self, jwt: &str) -> Result<SuiAddress> {
