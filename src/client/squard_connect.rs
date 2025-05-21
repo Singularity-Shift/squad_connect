@@ -7,6 +7,7 @@ use sui_sdk::{SuiClient, types::base_types::SuiAddress};
 
 use crate::service::dtos::Network;
 
+#[derive(Clone)]
 pub struct SquardConnect {
     services: Services,
 }

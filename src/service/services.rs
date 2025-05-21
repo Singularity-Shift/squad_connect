@@ -16,6 +16,7 @@ use sui_sdk::{
     },
 };
 
+#[derive(Clone)]
 pub struct Services {
     node: SuiClient,
     network: Network,
