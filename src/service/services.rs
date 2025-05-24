@@ -7,6 +7,7 @@ use super::{
 use async_trait::async_trait;
 use jwt_simple::reexports::rand::{Rng, SeedableRng, rngs::StdRng, thread_rng};
 use reqwest::{Client, header::HeaderMap};
+use serde::{Serialize, Deserialize};
 use sui_sdk::{
     SuiClient,
     types::{
@@ -46,7 +47,7 @@ impl Services {
 
 #[async_trait]
 impl GoogleOauthProvider for Services {
-    async fn get_oauth_url(&mut self, redirect_url: String) -> Result<String> {
+    async fn get_oauth_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
         // Create the ephemeral key pair outside the async block
         let ephemeral_key_pair = {
             let mut seed = [0u8; 32];
@@ -84,12 +85,27 @@ impl GoogleOauthProvider for Services {
         self.public_key = ephemeral_key_pair.public().encode_base64();
         self.max_epoch = nonce_data.data.max_epoch;
 
-        let google_url = format!(
-            "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&response_type=id_token&redirect_uri={}&scope=openid&nonce={}",
-            self.client_id, redirect_url, nonce_data.data.nonce
-        );
+        // Build the OAuth URL with proper query parameters
+        let mut google_url = url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth")
+            .map_err(|e| ServiceError::InvalidResponse(format!("Failed to parse OAuth URL: {}", e)))?;
 
-        Ok(google_url)
+        {
+            let mut query_pairs = google_url.query_pairs_mut();
+            query_pairs.append_pair("client_id", &self.client_id);
+            query_pairs.append_pair("response_type", "id_token");
+            query_pairs.append_pair("redirect_uri", &redirect_url);
+            query_pairs.append_pair("scope", "openid");
+            query_pairs.append_pair("nonce", &nonce_data.data.nonce);
+            
+            // Add state parameter if provided
+            if let Some(state_value) = state {
+                let state_json = serde_json::to_string(&state_value)
+                    .map_err(|e| ServiceError::InvalidResponse(format!("Failed to serialize state: {}", e)))?;
+                query_pairs.append_pair("state", &state_json);
+            }
+        }
+
+        Ok(google_url.to_string())
     }
 
     fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String> {
@@ -138,5 +154,28 @@ impl GoogleOauthProvider for Services {
             .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
 
         Ok(SuiAddress::from_bytes(zkp_data.data.address_seed).unwrap())
+    }
+
+    fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
+        // Parse the callback URL
+        let url = url::Url::parse(callback_url).map_err(|e| {
+            ServiceError::JwtExtraction(format!("Failed to parse callback URL: {}", e))
+        })?;
+
+        // Extract the state parameter
+        let state_str = url
+            .query_pairs()
+            .find(|(key, _)| key == "state")
+            .map(|(_, value)| value.to_string());
+
+        match state_str {
+            Some(state_json) => {
+                let state: T = serde_json::from_str(&state_json).map_err(|e| {
+                    ServiceError::JwtExtraction(format!("Failed to deserialize state: {}", e))
+                })?;
+                Ok(Some(state))
+            },
+            None => Ok(None),
+        }
     }
 }

@@ -3,6 +3,7 @@ use crate::service::{
     types::{GoogleOauthProvider, Result},
 };
 use sui_sdk::{SuiClient, types::base_types::SuiAddress};
+use serde::{Serialize, Deserialize};
 
 use crate::service::dtos::Network;
 
@@ -25,8 +26,8 @@ impl SquardConnect {
         self.jwt = jwt;
     }
 
-    pub async fn get_url(&mut self, redirect_url: String) -> Result<String> {
-        let url = self.services.get_oauth_url(redirect_url).await?;
+    pub async fn get_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
+        let url = self.services.get_oauth_url(redirect_url, state).await?;
 
         Ok(url)
     }
@@ -44,5 +45,9 @@ impl SquardConnect {
         let address_response = self.services.zk_proof(&self.jwt).await?;
 
         Ok(address_response)
+    }
+
+    pub fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
+        self.services.extract_state_from_callback(callback_url)
     }
 }
