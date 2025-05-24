@@ -13,7 +13,6 @@ pub enum EnokiEndpoints {
     Nonce,
     Address,
     ZkProof,
-    Account,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -80,7 +79,6 @@ impl fmt::Display for EnokiEndpoints {
             EnokiEndpoints::Nonce => write!(f, "{}/nonce", base_url),
             EnokiEndpoints::Address => write!(f, "{}", base_url),
             EnokiEndpoints::ZkProof => write!(f, "{}/zkp", base_url),
-            EnokiEndpoints::Account => write!(f, "{}/account", base_url),
         }
     }
 }

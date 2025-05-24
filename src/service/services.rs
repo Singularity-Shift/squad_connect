@@ -186,7 +186,7 @@ impl GoogleOauthProvider for Services {
         headers.insert("zklogin-jwt", jwt.parse().unwrap());
 
         let account_response = Client::new()
-            .get(&EnokiEndpoints::Account.to_string())
+            .get(&EnokiEndpoints::Address.to_string())
             .headers(headers)
             .send()
             .await
