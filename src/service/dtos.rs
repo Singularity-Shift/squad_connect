@@ -1,4 +1,5 @@
 use std::fmt;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub enum Network {
@@ -12,6 +13,7 @@ pub enum EnokiEndpoints {
     Nonce,
     Address,
     ZkProof,
+    Account,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -52,6 +54,14 @@ pub struct ZKPResponse {
     pub address_seed: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountResponse {
+    pub salt: String,
+    pub address: String,
+    pub public_key: String,
+}
+
 impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -70,6 +80,7 @@ impl fmt::Display for EnokiEndpoints {
             EnokiEndpoints::Nonce => write!(f, "{}/nonce", base_url),
             EnokiEndpoints::Address => write!(f, "{}", base_url),
             EnokiEndpoints::ZkProof => write!(f, "{}/zkp", base_url),
+            EnokiEndpoints::Account => write!(f, "{}/account", base_url),
         }
     }
 }

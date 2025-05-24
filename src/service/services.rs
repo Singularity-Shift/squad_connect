@@ -1,12 +1,12 @@
 use super::{
     dtos::{
-        EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload, ZKPResponse,
+        AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload, ZKPResponse
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
 use async_trait::async_trait;
 use jwt_simple::reexports::rand::{Rng, SeedableRng, rngs::StdRng, thread_rng};
-use reqwest::{Client, header::HeaderMap};
+use reqwest::{Client, header::{HeaderMap, HeaderValue}};
 use serde::{Serialize, Deserialize};
 use sui_sdk::{
     SuiClient,
@@ -71,7 +71,7 @@ impl GoogleOauthProvider for Services {
         let nonce_response = Client::new()
             .post(EnokiEndpoints::Nonce.to_string())
             .json(&payload)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap())
             .send()
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
@@ -130,7 +130,7 @@ impl GoogleOauthProvider for Services {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
 
-        headers.insert("Authorization", self.api_key.parse().unwrap());
+        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap());
         headers.insert("zklogin-jwt", jwt.parse().unwrap());
 
         let zkp_payload = ZKPPayload::from((
@@ -177,5 +177,26 @@ impl GoogleOauthProvider for Services {
             },
             None => Ok(None),
         }
+    }
+
+    async fn get_account(&self, jwt: &str) -> Result<AccountResponse> {
+        let mut headers = HeaderMap::new();
+
+        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap());
+        headers.insert("zklogin-jwt", jwt.parse().unwrap());
+
+        let account_response = Client::new()
+            .get(&EnokiEndpoints::Account.to_string())
+            .headers(headers)
+            .send()
+            .await
+            .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
+
+        let account_data: ResponseData<AccountResponse> = account_response
+            .json()
+            .await
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
+
+        Ok(account_data.data)
     }
 }
