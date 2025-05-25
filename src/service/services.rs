@@ -192,6 +192,18 @@ impl GoogleOauthProvider for Services {
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
 
+        // Check if the response status indicates an error
+        if !account_response.status().is_success() {
+            let status = account_response.status();
+            let error_body = account_response.text().await
+                .unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(ServiceError::Network(format!(
+                "Account request failed with status {}: {}", 
+                status, 
+                error_body
+            )));
+        }
+
         let account_data: ResponseData<AccountResponse> = account_response
             .json()
             .await
