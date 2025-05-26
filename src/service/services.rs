@@ -126,6 +126,17 @@ impl GoogleOauthProvider for Services {
         Ok(id_token)
     }
 
+    fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
+        self.network = network;
+        self.public_key = public_key;
+        self.max_epoch = max_epoch;
+        self.randomness = randomness;
+    }
+
+    fn get_zk_proof_params(&self) -> (Network, String, u64, String) {
+        (self.network.clone(), self.public_key.clone(), self.max_epoch, self.randomness.clone())
+    }
+
     async fn zk_proof(&self, jwt: &str) -> Result<String> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();

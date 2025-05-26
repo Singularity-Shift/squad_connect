@@ -27,6 +27,14 @@ impl SquardConnect {
         self.jwt = jwt;
     }
 
+    pub async fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
+        self.services.set_zk_proof_params(network, public_key, max_epoch, randomness);
+    }
+
+    pub fn get_zk_proof_params(&self) -> (Network, String, u64, String) {
+        self.services.get_zk_proof_params()
+    }
+
     pub async fn get_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
         let url = self.services.get_oauth_url(redirect_url, state).await?;
 
