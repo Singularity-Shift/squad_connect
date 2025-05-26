@@ -10,6 +10,7 @@ use crate::service::dtos::Network;
 pub struct SquardConnect {
     services: Services,
     jwt: String,
+    seed_address: String,
 }
 
 impl SquardConnect {
@@ -18,6 +19,7 @@ impl SquardConnect {
         Self {
             services,
             jwt: String::new(),
+            seed_address: String::new(),
         }
     }
 
@@ -31,21 +33,25 @@ impl SquardConnect {
         Ok(url)
     }
 
-    pub async fn get_account(&mut self, callback_url: String) -> Result<SuiAddress> {
+    pub async fn set_seed_address(&mut self, callback_url: String) -> Result<()> {
         let jwt = self.services.extract_jwt_from_callback(&callback_url)?;
         self.jwt = jwt;
 
-        let account = self.services.zk_proof(&self.jwt).await?;
+        let seed_address = self.services.zk_proof(&self.jwt).await?;
+        self.seed_address = seed_address;
 
-        Ok(account)
+        Ok(())
     }
 
+    pub fn get_sui_address(&self) -> SuiAddress {
+        self.services.get_sui_address(&self.seed_address)
+    }
     
 
-    pub async fn recover_account(&self) -> Result<SuiAddress> {
-        let address_response = self.services.zk_proof(&self.jwt).await?;
+    pub async fn recover_seed_address(&self) -> Result<String> {
+        let seed_address = self.services.zk_proof(&self.jwt).await?;
 
-        Ok(address_response)
+        Ok(seed_address)
     }
 
     pub fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sui_sdk::types::base_types::SuiAddress;
+use sui_sdk::{types::base_types::SuiAddress};
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
 
@@ -33,6 +33,7 @@ pub trait GoogleOauthProvider {
     async fn get_oauth_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String>;
     fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String>;
     fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>>;
-    async fn zk_proof(&self, jwt: &str) -> Result<SuiAddress>;
+    fn get_sui_address(&self, address_seed: &str) -> SuiAddress;
+    async fn zk_proof(&self, jwt: &str) -> Result<String>;
     async fn get_account(&self, jwt: &str) -> Result<AccountResponse>;
 }

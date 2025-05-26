@@ -126,7 +126,7 @@ impl GoogleOauthProvider for Services {
         Ok(id_token)
     }
 
-    async fn zk_proof(&self, jwt: &str) -> Result<SuiAddress> {
+    async fn zk_proof(&self, jwt: &str) -> Result<String> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
 
@@ -153,7 +153,11 @@ impl GoogleOauthProvider for Services {
             .await
             .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
 
-        Ok(SuiAddress::from_bytes(zkp_data.data.address_seed).unwrap())
+        Ok(zkp_data.data.address_seed)
+    }
+
+    fn get_sui_address(&self, address_seed: &str) -> SuiAddress {
+        SuiAddress::from_bytes(address_seed).unwrap()
     }
 
     fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
