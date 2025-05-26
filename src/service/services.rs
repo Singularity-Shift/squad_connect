@@ -1,7 +1,6 @@
 use super::{
     dtos::{
         AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload,
-        parse_zklogin_inputs_from_camel_case, ZkLoginInputsSnakeCase, convert_camel_case_to_zklogin_inputs
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
@@ -43,18 +42,6 @@ impl Services {
 
     pub fn get_node(&self) -> &SuiClient {
         &self.node
-    }
-
-    // Helper method to parse camelCase ZkLogin response
-    pub fn parse_zklogin_from_camel_case(&self, camel_json: &str) -> Result<ZkLoginInputsSnakeCase> {
-        parse_zklogin_inputs_from_camel_case(camel_json)
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed to parse camelCase ZkLogin inputs: {}", e)))
-    }
-
-    // Helper method to convert camelCase JSON to ZkLoginInputs
-    pub fn convert_camel_to_zklogin_inputs(&self, camel_json: &str) -> Result<ZkLoginInputs> {
-        convert_camel_case_to_zklogin_inputs(camel_json)
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed to convert camelCase to ZkLoginInputs: {}", e)))
     }
 }
 
@@ -183,27 +170,12 @@ impl GoogleOauthProvider for Services {
             )));
         }
 
-        // Get the response as text first
-        let response_text = zk_proof_response
-            .text()
+        let zkp_data: ResponseData<ZkLoginInputs> = zk_proof_response
+            .json()
             .await
-            .map_err(|e| ServiceError::Network(format!("Failed to read response text: {}", e)))?;
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
 
-        // Parse the response to get the data field
-        let response_value: serde_json::Value = serde_json::from_str(&response_text)
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed to parse response JSON: {}", e)))?;
-
-        // Extract the data field (which contains the camelCase ZkLoginInputs)
-        let data_json = response_value.get("data")
-            .ok_or_else(|| ServiceError::JwtFormat("No 'data' field in response".to_string()))?;
-
-        let data_json_str = serde_json::to_string(data_json)
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed to serialize data field: {}", e)))?;
-
-        // Convert camelCase to ZkLoginInputs
-        let zklogin_inputs = self.convert_camel_to_zklogin_inputs(&data_json_str)?;
-
-        Ok(zklogin_inputs)
+        Ok(zkp_data.data)
     }
 
     fn get_sui_address(&self, zklogin: ZkLoginInputs) -> SuiAddress {
