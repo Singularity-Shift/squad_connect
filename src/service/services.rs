@@ -148,6 +148,17 @@ impl GoogleOauthProvider for Services {
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
 
+        if !zk_proof_response.status().is_success() {
+            let status = zk_proof_response.status();
+            let error_body = zk_proof_response.text().await
+                .unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(ServiceError::Network(format!(
+                "ZK proof request failed with status {}: {}", 
+                status, 
+                error_body
+            )));
+        }
+
         let zkp_data: ResponseData<ZKPResponse> = zk_proof_response
             .json()
             .await
