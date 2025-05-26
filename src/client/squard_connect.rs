@@ -1,6 +1,7 @@
 use crate::service::{
     dtos::AccountResponse, services::Services, types::{GoogleOauthProvider, Result}
 };
+use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use sui_sdk::{SuiClient, types::base_types::SuiAddress};
 use serde::{Serialize, Deserialize};
 
@@ -10,7 +11,7 @@ use crate::service::dtos::Network;
 pub struct SquardConnect {
     services: Services,
     jwt: String,
-    seed_address: String,
+    zklogin: Option<ZkLoginInputs>,
 }
 
 impl SquardConnect {
@@ -19,7 +20,7 @@ impl SquardConnect {
         Self {
             services,
             jwt: String::new(),
-            seed_address: String::new(),
+            zklogin: None,
         }
     }
 
@@ -45,25 +46,25 @@ impl SquardConnect {
         Ok(url)
     }
 
-    pub async fn set_seed_address(&mut self, callback_url: String) -> Result<String> {
+    pub async fn set_zk_login(&mut self, callback_url: String) -> Result<ZkLoginInputs> {
         let jwt = self.services.extract_jwt_from_callback(&callback_url)?;
         self.jwt = jwt;
 
-        let seed_address = self.services.zk_proof(&self.jwt).await?;
-        self.seed_address = seed_address.clone();
+        let zkpresponse = self.services.zk_proof(&self.jwt).await?;
+        self.zklogin = Some(zkpresponse.clone());
 
-        Ok(seed_address)
+        Ok(zkpresponse)
     }
 
-    pub fn get_sui_address(&self) -> SuiAddress {
-        self.services.get_sui_address(&self.seed_address)
+    pub fn get_sui_address(&self) -> Option<SuiAddress> {
+        self.zklogin.clone().map(|zklogin| self.services.get_sui_address(zklogin))
     }
     
 
-    pub async fn recover_seed_address(&self) -> Result<String> {
-        let seed_address = self.services.zk_proof(&self.jwt).await?;
+    pub async fn recover_seed_address(&self) -> Result<ZkLoginInputs> {
+        let zkresponse = self.services.zk_proof(&self.jwt).await?;
 
-        Ok(seed_address)
+        Ok(zkresponse)
     }
 
     pub fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {

@@ -1,19 +1,20 @@
 use super::{
     dtos::{
-        AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload, ZKPResponse
+        AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload,
+        parse_zklogin_inputs_from_camel_case, ZkLoginInputsSnakeCase, convert_camel_case_to_zklogin_inputs
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
 use async_trait::async_trait;
+use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use jwt_simple::reexports::rand::{Rng, SeedableRng, rngs::StdRng, thread_rng};
 use reqwest::{Client, header::{HeaderMap, HeaderValue}};
 use serde::{Serialize, Deserialize};
 use sui_sdk::{
-    SuiClient,
     types::{
         base_types::SuiAddress,
         crypto::{AccountKeyPair, EncodeDecodeBase64, KeypairTraits, SuiKeyPair},
-    },
+    }, SuiClient
 };
 
 #[derive(Clone)]
@@ -42,6 +43,18 @@ impl Services {
 
     pub fn get_node(&self) -> &SuiClient {
         &self.node
+    }
+
+    // Helper method to parse camelCase ZkLogin response
+    pub fn parse_zklogin_from_camel_case(&self, camel_json: &str) -> Result<ZkLoginInputsSnakeCase> {
+        parse_zklogin_inputs_from_camel_case(camel_json)
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed to parse camelCase ZkLogin inputs: {}", e)))
+    }
+
+    // Helper method to convert camelCase JSON to ZkLoginInputs
+    pub fn convert_camel_to_zklogin_inputs(&self, camel_json: &str) -> Result<ZkLoginInputs> {
+        convert_camel_case_to_zklogin_inputs(camel_json)
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed to convert camelCase to ZkLoginInputs: {}", e)))
     }
 }
 
@@ -137,7 +150,7 @@ impl GoogleOauthProvider for Services {
         (self.network.clone(), self.public_key.clone(), self.max_epoch, self.randomness.clone())
     }
 
-    async fn zk_proof(&self, jwt: &str) -> Result<String> {
+    async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
 
@@ -170,16 +183,31 @@ impl GoogleOauthProvider for Services {
             )));
         }
 
-        let zkp_data: ResponseData<ZKPResponse> = zk_proof_response
-            .json()
+        // Get the response as text first
+        let response_text = zk_proof_response
+            .text()
             .await
-            .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
+            .map_err(|e| ServiceError::Network(format!("Failed to read response text: {}", e)))?;
 
-        Ok(zkp_data.data.address_seed)
+        // Parse the response to get the data field
+        let response_value: serde_json::Value = serde_json::from_str(&response_text)
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed to parse response JSON: {}", e)))?;
+
+        // Extract the data field (which contains the camelCase ZkLoginInputs)
+        let data_json = response_value.get("data")
+            .ok_or_else(|| ServiceError::JwtFormat("No 'data' field in response".to_string()))?;
+
+        let data_json_str = serde_json::to_string(data_json)
+            .map_err(|e| ServiceError::JwtFormat(format!("Failed to serialize data field: {}", e)))?;
+
+        // Convert camelCase to ZkLoginInputs
+        let zklogin_inputs = self.convert_camel_to_zklogin_inputs(&data_json_str)?;
+
+        Ok(zklogin_inputs)
     }
 
-    fn get_sui_address(&self, address_seed: &str) -> SuiAddress {
-        SuiAddress::from_bytes(address_seed).unwrap()
+    fn get_sui_address(&self, zklogin: ZkLoginInputs) -> SuiAddress {
+        SuiAddress::try_from_padded(&zklogin).unwrap()
     }
 
     fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
