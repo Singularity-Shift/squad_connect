@@ -27,7 +27,7 @@ impl SquardConnect {
         self.jwt = jwt;
     }
 
-    pub async fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
+    pub fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
         self.services.set_zk_proof_params(network, public_key, max_epoch, randomness);
     }
 
