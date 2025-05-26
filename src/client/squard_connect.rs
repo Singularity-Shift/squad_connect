@@ -33,14 +33,14 @@ impl SquardConnect {
         Ok(url)
     }
 
-    pub async fn set_seed_address(&mut self, callback_url: String) -> Result<()> {
+    pub async fn set_seed_address(&mut self, callback_url: String) -> Result<String> {
         let jwt = self.services.extract_jwt_from_callback(&callback_url)?;
         self.jwt = jwt;
 
         let seed_address = self.services.zk_proof(&self.jwt).await?;
-        self.seed_address = seed_address;
+        self.seed_address = seed_address.clone();
 
-        Ok(())
+        Ok(seed_address)
     }
 
     pub fn get_sui_address(&self) -> SuiAddress {
