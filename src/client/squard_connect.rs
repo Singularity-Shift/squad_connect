@@ -23,6 +23,10 @@ impl SquardConnect {
         }
     }
 
+    pub fn get_node(&self) -> &SuiClient {
+        &self.services.get_node()
+    }
+
     pub fn set_jwt(&mut self, jwt: String) {
         self.jwt = jwt;
     }
