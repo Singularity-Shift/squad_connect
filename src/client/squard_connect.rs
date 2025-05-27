@@ -11,7 +11,6 @@ use crate::service::dtos::Network;
 pub struct SquardConnect {
     services: Services,
     jwt: String,
-    zklogin: Option<ZkLoginInputs>,
 }
 
 impl SquardConnect {
@@ -20,7 +19,6 @@ impl SquardConnect {
         Self {
             services,
             jwt: String::new(),
-            zklogin: None,
         }
     }
 
@@ -46,18 +44,8 @@ impl SquardConnect {
         Ok(url)
     }
 
-    pub async fn set_zk_login(&mut self, callback_url: String) -> Result<ZkLoginInputs> {
-        let jwt = self.services.extract_jwt_from_callback(&callback_url)?;
-        self.jwt = jwt;
-
-        let zkpresponse = self.services.zk_proof(&self.jwt).await?;
-        self.zklogin = Some(zkpresponse.clone());
-
-        Ok(zkpresponse)
-    }
-
-    pub fn get_sui_address(&self) -> Option<SuiAddress> {
-        self.zklogin.clone().map(|zklogin| self.services.get_sui_address(zklogin))
+    pub fn get_sender(&self, zklogin: ZkLoginInputs) -> SuiAddress {
+        self.services.get_sui_address(zklogin)
     }
     
 
