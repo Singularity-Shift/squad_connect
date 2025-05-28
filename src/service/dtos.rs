@@ -65,6 +65,17 @@ impl fmt::Display for Network {
     }
 }
 
+impl From<String> for Network {
+    fn from(network: String) -> Self {
+        match network.as_str() {
+            "devnet" => Network::Devnet,
+            "testnet" => Network::Testnet,
+            "mainnet" => Network::Mainnet,
+            _ => Network::Testnet, // Default to testnet for unknown values
+        }
+    }
+} 
+
 impl fmt::Display for EnokiEndpoints {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let base_url = String::from("https://api.enoki.mystenlabs.com/v1/zklogin");
