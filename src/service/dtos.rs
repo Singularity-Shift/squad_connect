@@ -41,10 +41,10 @@ pub struct NoncePayload {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ZKPPayload {
-    network: String,
-    ephemeral_public_key: String,
-    max_epoch: u64,
-    randomness: String,
+    pub network: String,
+    pub ephemeral_public_key: String,
+    pub max_epoch: u64,
+    pub randomness: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
