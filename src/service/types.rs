@@ -4,7 +4,7 @@ use thiserror::Error;
 use serde::{Serialize, Deserialize};
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 
-use super::dtos::{AccountResponse, Network, };
+use super::dtos::{AccountResponse, Network};
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
@@ -39,4 +39,5 @@ pub trait GoogleOauthProvider {
     fn get_zk_proof_params(&self) -> (Network, String, u64, String);
     async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs>;
     async fn get_account(&self, jwt: &str) -> Result<AccountResponse>;
+    async fn create_zkp_payload(&mut self) -> Result<()>;
 }

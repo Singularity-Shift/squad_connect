@@ -25,6 +25,7 @@ pub struct Services {
     randomness: String,
     public_key: String,
     max_epoch: u64,
+    nonce: String,
 }
 
 impl Services {
@@ -37,6 +38,7 @@ impl Services {
             randomness: String::from(""),
             public_key: String::from(""),
             max_epoch: 0,
+            nonce: String::from(""),
         }
     }
 
@@ -49,6 +51,49 @@ impl Services {
 impl GoogleOauthProvider for Services {
     async fn get_oauth_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
         // Create the ephemeral key pair outside the async block
+
+        // Build the OAuth URL with proper query parameters
+        let mut google_url = url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth")
+            .map_err(|e| ServiceError::InvalidResponse(format!("Failed to parse OAuth URL: {}", e)))?;
+
+        {
+            let mut query_pairs = google_url.query_pairs_mut();
+            query_pairs.append_pair("client_id", &self.client_id);
+            query_pairs.append_pair("response_type", "id_token");
+            query_pairs.append_pair("redirect_uri", &redirect_url);
+            query_pairs.append_pair("scope", "openid");
+            query_pairs.append_pair("nonce", &self.nonce);
+            
+            // Add state parameter if provided
+            if let Some(state_value) = state {
+                let state_json = serde_json::to_string(&state_value)
+                    .map_err(|e| ServiceError::InvalidResponse(format!("Failed to serialize state: {}", e)))?;
+                query_pairs.append_pair("state", &state_json);
+            }
+        }
+
+        Ok(google_url.to_string())
+    }
+
+    fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String> {
+        // Parse the callback URL
+        let url = url::Url::parse(callback_url).map_err(|e| {
+            ServiceError::JwtExtraction(format!("Failed to parse callback URL: {}", e))
+        })?;
+
+        // Extract the id_token parameter
+        let id_token = url
+            .query_pairs()
+            .find(|(key, _)| key == "id_token")
+            .map(|(_, value)| value.to_string())
+            .ok_or_else(|| {
+                ServiceError::JwtExtraction("No id_token found in callback URL".to_string())
+            })?;
+
+        Ok(id_token)
+    }
+
+    async fn create_zkp_payload(&mut self) -> Result<()> {
         let ephemeral_key_pair = {
             let mut seed = [0u8; 32];
             thread_rng().fill(&mut seed);
@@ -84,46 +129,9 @@ impl GoogleOauthProvider for Services {
         self.randomness = nonce_data.data.randomness;
         self.public_key = ephemeral_key_pair.public().encode_base64();
         self.max_epoch = nonce_data.data.max_epoch;
+        self.nonce = nonce_data.data.nonce;
 
-        // Build the OAuth URL with proper query parameters
-        let mut google_url = url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth")
-            .map_err(|e| ServiceError::InvalidResponse(format!("Failed to parse OAuth URL: {}", e)))?;
-
-        {
-            let mut query_pairs = google_url.query_pairs_mut();
-            query_pairs.append_pair("client_id", &self.client_id);
-            query_pairs.append_pair("response_type", "id_token");
-            query_pairs.append_pair("redirect_uri", &redirect_url);
-            query_pairs.append_pair("scope", "openid");
-            query_pairs.append_pair("nonce", &nonce_data.data.nonce);
-            
-            // Add state parameter if provided
-            if let Some(state_value) = state {
-                let state_json = serde_json::to_string(&state_value)
-                    .map_err(|e| ServiceError::InvalidResponse(format!("Failed to serialize state: {}", e)))?;
-                query_pairs.append_pair("state", &state_json);
-            }
-        }
-
-        Ok(google_url.to_string())
-    }
-
-    fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String> {
-        // Parse the callback URL
-        let url = url::Url::parse(callback_url).map_err(|e| {
-            ServiceError::JwtExtraction(format!("Failed to parse callback URL: {}", e))
-        })?;
-
-        // Extract the id_token parameter
-        let id_token = url
-            .query_pairs()
-            .find(|(key, _)| key == "id_token")
-            .map(|(_, value)| value.to_string())
-            .ok_or_else(|| {
-                ServiceError::JwtExtraction("No id_token found in callback URL".to_string())
-            })?;
-
-        Ok(id_token)
+        Ok(())
     }
 
     fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
