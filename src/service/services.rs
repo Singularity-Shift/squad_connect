@@ -1,19 +1,27 @@
 use super::{
     dtos::{
-        AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData, ZKPPayload,
+        AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData,
+        ZKPPayload,
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
 use async_trait::async_trait;
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use jwt_simple::reexports::rand::{Rng, SeedableRng, rngs::StdRng, thread_rng};
-use reqwest::{Client, header::{HeaderMap, HeaderValue}};
-use serde::{Serialize, Deserialize};
+use reqwest::{
+    Client,
+    header::{HeaderMap, HeaderValue},
+};
+use serde::{Deserialize, Serialize};
 use sui_sdk::{
+    SuiClient,
     types::{
         base_types::SuiAddress,
-        crypto::{AccountKeyPair, EncodeDecodeBase64, KeypairTraits, SuiKeyPair},
-    }, SuiClient
+        crypto::{
+            AccountKeyPair, EncodeDecodeBase64, KeypairTraits, PublicKey, SuiKeyPair,
+            ZkLoginPublicIdentifier,
+        },
+    },
 };
 
 #[derive(Clone)]
@@ -49,12 +57,18 @@ impl Services {
 
 #[async_trait]
 impl GoogleOauthProvider for Services {
-    async fn get_oauth_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
+    async fn get_oauth_url<T: Send + Serialize>(
+        &mut self,
+        redirect_url: String,
+        state: Option<T>,
+    ) -> Result<String> {
         // Create the ephemeral key pair outside the async block
 
         // Build the OAuth URL with proper query parameters
         let mut google_url = url::Url::parse("https://accounts.google.com/o/oauth2/v2/auth")
-            .map_err(|e| ServiceError::InvalidResponse(format!("Failed to parse OAuth URL: {}", e)))?;
+            .map_err(|e| {
+                ServiceError::InvalidResponse(format!("Failed to parse OAuth URL: {}", e))
+            })?;
 
         {
             let mut query_pairs = google_url.query_pairs_mut();
@@ -63,11 +77,12 @@ impl GoogleOauthProvider for Services {
             query_pairs.append_pair("redirect_uri", &redirect_url);
             query_pairs.append_pair("scope", "openid");
             query_pairs.append_pair("nonce", &self.nonce);
-            
+
             // Add state parameter if provided
             if let Some(state_value) = state {
-                let state_json = serde_json::to_string(&state_value)
-                    .map_err(|e| ServiceError::InvalidResponse(format!("Failed to serialize state: {}", e)))?;
+                let state_json = serde_json::to_string(&state_value).map_err(|e| {
+                    ServiceError::InvalidResponse(format!("Failed to serialize state: {}", e))
+                })?;
                 query_pairs.append_pair("state", &state_json);
             }
         }
@@ -116,7 +131,10 @@ impl GoogleOauthProvider for Services {
         let nonce_response = Client::new()
             .post(EnokiEndpoints::Nonce.to_string())
             .json(&payload)
-            .header("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap())
+            .header(
+                "Authorization",
+                HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+            )
             .send()
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
@@ -134,7 +152,13 @@ impl GoogleOauthProvider for Services {
         Ok(())
     }
 
-    fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
+    fn set_zk_proof_params(
+        &mut self,
+        network: Network,
+        public_key: String,
+        max_epoch: u64,
+        randomness: String,
+    ) {
         self.network = network;
         self.public_key = public_key;
         self.max_epoch = max_epoch;
@@ -142,14 +166,22 @@ impl GoogleOauthProvider for Services {
     }
 
     fn get_zk_proof_params(&self) -> (Network, String, u64, String) {
-        (self.network.clone(), self.public_key.clone(), self.max_epoch, self.randomness.clone())
+        (
+            self.network.clone(),
+            self.public_key.clone(),
+            self.max_epoch,
+            self.randomness.clone(),
+        )
     }
 
     async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
 
-        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap());
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
         headers.insert("zklogin-jwt", jwt.parse().unwrap());
 
         let zkp_payload = ZKPPayload::from((
@@ -169,12 +201,13 @@ impl GoogleOauthProvider for Services {
 
         if !zk_proof_response.status().is_success() {
             let status = zk_proof_response.status();
-            let error_body = zk_proof_response.text().await
+            let error_body = zk_proof_response
+                .text()
+                .await
                 .unwrap_or_else(|_| "Unable to read error response".to_string());
             return Err(ServiceError::Network(format!(
-                "ZK proof request failed with status {}: {}", 
-                status, 
-                error_body
+                "ZK proof request failed with status {}: {}",
+                status, error_body
             )));
         }
 
@@ -187,10 +220,17 @@ impl GoogleOauthProvider for Services {
     }
 
     fn get_sui_address(&self, zklogin: ZkLoginInputs) -> SuiAddress {
-        SuiAddress::try_from_padded(&zklogin).unwrap()
+        let pk = PublicKey::ZkLogin(
+            ZkLoginPublicIdentifier::new(zklogin.get_iss(), zklogin.get_address_seed()).unwrap(),
+        );
+
+        SuiAddress::from(&pk)
     }
 
-    fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
+    fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(
+        &self,
+        callback_url: &str,
+    ) -> Result<Option<T>> {
         // Parse the callback URL
         let url = url::Url::parse(callback_url).map_err(|e| {
             ServiceError::JwtExtraction(format!("Failed to parse callback URL: {}", e))
@@ -208,7 +248,7 @@ impl GoogleOauthProvider for Services {
                     ServiceError::JwtExtraction(format!("Failed to deserialize state: {}", e))
                 })?;
                 Ok(Some(state))
-            },
+            }
             None => Ok(None),
         }
     }
@@ -216,7 +256,10 @@ impl GoogleOauthProvider for Services {
     async fn get_account(&self, jwt: &str) -> Result<AccountResponse> {
         let mut headers = HeaderMap::new();
 
-        headers.insert("Authorization", HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap());
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
         headers.insert("zklogin-jwt", jwt.parse().unwrap());
 
         let account_response = Client::new()
@@ -229,12 +272,13 @@ impl GoogleOauthProvider for Services {
         // Check if the response status indicates an error
         if !account_response.status().is_success() {
             let status = account_response.status();
-            let error_body = account_response.text().await
+            let error_body = account_response
+                .text()
+                .await
                 .unwrap_or_else(|_| "Unable to read error response".to_string());
             return Err(ServiceError::Network(format!(
-                "Account request failed with status {}: {}", 
-                status, 
-                error_body
+                "Account request failed with status {}: {}",
+                status, error_body
             )));
         }
 
