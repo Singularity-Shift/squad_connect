@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use super::{
     dtos::{
         AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData,
@@ -13,6 +15,7 @@ use reqwest::{
     header::{HeaderMap, HeaderValue},
 };
 use serde::{Deserialize, Serialize};
+use sui_keys::keystore::{AccountKeystore, FileBasedKeystore};
 use sui_sdk::{
     SuiClient,
     types::{
@@ -108,12 +111,22 @@ impl GoogleOauthProvider for Services {
         Ok(id_token)
     }
 
-    async fn create_zkp_payload(&mut self) -> Result<()> {
+    async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()> {
         let ephemeral_key_pair = {
             let mut seed = [0u8; 32];
             thread_rng().fill(&mut seed);
             SuiKeyPair::Ed25519(AccountKeyPair::generate(&mut StdRng::from_seed(seed)))
         };
+
+        let mut key_store = FileBasedKeystore::new(&path).map_err(|e| {
+            ServiceError::InvalidResponse(format!("Failed to create key store: {}", e))
+        })?;
+
+        key_store
+            .add_key(None, ephemeral_key_pair.copy())
+            .map_err(|e| {
+                ServiceError::InvalidResponse(format!("Failed to add key to key store: {}", e))
+            })?;
 
         // Generate randomness outside the async block
         let mut randomness = [0u8; 16];

@@ -1,9 +1,13 @@
+use std::path::PathBuf;
+
 use crate::service::{
-    dtos::AccountResponse, services::Services, types::{GoogleOauthProvider, Result}
+    dtos::AccountResponse,
+    services::Services,
+    types::{GoogleOauthProvider, Result},
 };
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
+use serde::{Deserialize, Serialize};
 use sui_sdk::{SuiClient, types::base_types::SuiAddress};
-use serde::{Serialize, Deserialize};
 
 use crate::service::dtos::Network;
 
@@ -30,21 +34,33 @@ impl SquardConnect {
         self.jwt = jwt;
     }
 
-    pub fn set_zk_proof_params(&mut self, network: Network, public_key: String, max_epoch: u64, randomness: String) {
-        self.services.set_zk_proof_params(network, public_key, max_epoch, randomness);
+    pub fn set_zk_proof_params(
+        &mut self,
+        network: Network,
+        public_key: String,
+        max_epoch: u64,
+        randomness: String,
+    ) {
+        self.services
+            .set_zk_proof_params(network, public_key, max_epoch, randomness);
     }
 
     pub fn get_zk_proof_params(&self) -> (Network, String, u64, String) {
         self.services.get_zk_proof_params()
     }
 
-    pub async fn create_zkp_payload(&mut self) -> Result<()> {
-        self.services.create_zkp_payload().await
+    pub async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()> {
+        self.services.create_zkp_payload(path).await
     }
 
-    pub async fn get_url<T: Send + Serialize>(&mut self, redirect_url: String, state: Option<T>) -> Result<String> {
+    pub async fn get_url<T: Send + Serialize>(
+        &mut self,
+        redirect_url: String,
+        state: Option<T>,
+        path: PathBuf,
+    ) -> Result<String> {
         if self.services.get_zk_proof_params().1.is_empty() {
-            self.create_zkp_payload().await?;
+            self.create_zkp_payload(path).await?;
         }
 
         let url = self.services.get_oauth_url(redirect_url, state).await?;
@@ -55,7 +71,6 @@ impl SquardConnect {
     pub fn get_sender(&self, zklogin: ZkLoginInputs) -> SuiAddress {
         self.services.get_sui_address(zklogin)
     }
-    
 
     pub async fn recover_seed_address(&self) -> Result<ZkLoginInputs> {
         let zkresponse = self.services.zk_proof(&self.jwt).await?;
@@ -63,7 +78,10 @@ impl SquardConnect {
         Ok(zkresponse)
     }
 
-    pub fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(&self, callback_url: &str) -> Result<Option<T>> {
+    pub fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(
+        &self,
+        callback_url: &str,
+    ) -> Result<Option<T>> {
         self.services.extract_state_from_callback(callback_url)
     }
 
