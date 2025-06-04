@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
 use crate::service::{
     dtos::AccountResponse,
@@ -13,7 +13,6 @@ use sui_sdk::{
     SuiClient,
     types::{
         base_types::SuiAddress,
-        crypto::PublicKey,
         signature::GenericSignature,
         transaction::{Transaction, TransactionData},
         zk_login_authenticator::ZkLoginAuthenticator,
@@ -89,33 +88,14 @@ impl SquardConnect {
         Ok(account)
     }
 
-    pub async fn get_signer(&self, account: AccountResponse) -> Result<SuiAddress> {
-        let public_key = PublicKey::from_str(&account.public_key).map_err(|e| {
-            ServiceError::InvalidResponse(format!("Failed to parse public key: {}", e))
-        })?;
-
-        let signer = SuiAddress::from(&public_key);
-
-        Ok(signer)
-    }
-
-    pub async fn get_sender(&self, account: AccountResponse) -> Result<SuiAddress> {
-        let sender = SuiAddress::from_str(&account.address)
-            .map_err(|e| ServiceError::InvalidResponse(format!("Failed to parse sender: {}", e)))?;
-
-        Ok(sender)
-    }
-
     pub async fn sign_transaction(
         &self,
         tx: TransactionData,
-        account: AccountResponse,
+        signer: SuiAddress,
         zk_login_inputs: ZkLoginInputs,
         max_epoch: u64,
         path: PathBuf,
     ) -> Result<Transaction> {
-        let signer = self.get_signer(account).await?;
-
         let key_store = FileBasedKeystore::new(&path).map_err(|e| {
             ServiceError::InvalidResponse(format!("Failed to create key store: {}", e))
         })?;
@@ -139,12 +119,10 @@ impl SquardConnect {
     pub async fn sponsor_transaction(
         &mut self,
         tx: Transaction,
-        account: AccountResponse,
+        sender: SuiAddress,
         allowed_addresses: Vec<String>,
         allowed_move_call_targets: Vec<String>,
     ) -> Result<String> {
-        let sender = self.get_sender(account).await?;
-
         let sponsor_transaction = self
             .services
             .create_sponsor_transaction(tx, sender, allowed_addresses, allowed_move_call_targets)
