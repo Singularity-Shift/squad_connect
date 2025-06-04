@@ -54,6 +54,9 @@ pub trait GoogleOauthProvider {
         allowed_move_call_targets: Vec<String>,
     ) -> Result<SponsorTransactionResponse>;
 
+    fn get_max_epoch(&self) -> u64;
+    fn get_public_key(&self) -> String;
+
     async fn submit_sponsor_transaction(
         &mut self,
         digest: String,

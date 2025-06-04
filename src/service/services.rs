@@ -272,6 +272,14 @@ impl GoogleOauthProvider for Services {
         Ok(account_data.data)
     }
 
+    fn get_max_epoch(&self) -> u64 {
+        self.max_epoch
+    }
+
+    fn get_public_key(&self) -> String {
+        self.public_key.clone()
+    }
+
     async fn create_sponsor_transaction(
         &mut self,
         transaction: Transaction,

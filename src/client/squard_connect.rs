@@ -41,6 +41,14 @@ impl SquardConnect {
         &self.services.get_node()
     }
 
+    pub fn get_max_epoch(&self) -> u64 {
+        self.services.get_max_epoch()
+    }
+
+    pub fn get_public_key(&self) -> String {
+        self.services.get_public_key()
+    }
+
     pub fn set_jwt(&mut self, jwt: String) {
         self.jwt = jwt;
     }
