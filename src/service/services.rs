@@ -272,12 +272,18 @@ impl GoogleOauthProvider for Services {
         Ok(account_data.data)
     }
 
-    fn get_max_epoch(&self) -> u64 {
-        self.max_epoch
+    fn get_zk_proof_params(&self) -> (String, String, u64) {
+        (
+            self.randomness.clone(),
+            self.public_key.clone(),
+            self.max_epoch,
+        )
     }
 
-    fn get_public_key(&self) -> String {
-        self.public_key.clone()
+    fn set_zk_proof_params(&mut self, randomness: String, public_key: String, max_epoch: u64) {
+        self.randomness = randomness;
+        self.public_key = public_key;
+        self.max_epoch = max_epoch;
     }
 
     async fn create_sponsor_transaction(

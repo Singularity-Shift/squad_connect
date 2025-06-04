@@ -41,16 +41,17 @@ impl SquardConnect {
         &self.services.get_node()
     }
 
-    pub fn get_max_epoch(&self) -> u64 {
-        self.services.get_max_epoch()
-    }
-
-    pub fn get_public_key(&self) -> String {
-        self.services.get_public_key()
+    pub fn get_zk_proof_params(&self) -> (String, String, u64) {
+        self.services.get_zk_proof_params()
     }
 
     pub fn set_jwt(&mut self, jwt: String) {
         self.jwt = jwt;
+    }
+
+    pub fn set_zk_proof_params(&mut self, randomness: String, public_key: String, max_epoch: u64) {
+        self.services
+            .set_zk_proof_params(randomness, public_key, max_epoch);
     }
 
     pub async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()> {
