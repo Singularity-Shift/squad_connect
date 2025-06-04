@@ -53,14 +53,17 @@ impl SquardConnect {
         self.jwt = jwt;
     }
 
+    pub async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()> {
+        self.services.create_zkp_payload(path).await?;
+
+        Ok(())
+    }
+
     pub async fn get_url<T: Send + Serialize>(
         &mut self,
         redirect_url: String,
         state: Option<T>,
-        path: PathBuf,
     ) -> Result<String> {
-        self.services.create_zkp_payload(path).await?;
-
         let url = self.services.get_oauth_url(redirect_url, state).await?;
 
         Ok(url)
