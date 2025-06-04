@@ -300,11 +300,11 @@ impl GoogleOauthProvider for Services {
             HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
         );
 
-        let (tx_bytes, _signatures) = transaction.to_tx_bytes_and_signatures();
+        let (tx_bytes_base64, _signatures) = transaction.to_tx_bytes_and_signatures();
 
         let sponsor_transaction_payload = SponsorTransactionPayload::from((
             self.network.to_string(),
-            tx_bytes,
+            tx_bytes_base64,
             sender.to_string(),
             allowed_addresses,
             allowed_move_call_targets,
@@ -325,7 +325,7 @@ impl GoogleOauthProvider for Services {
                 .await
                 .unwrap_or_else(|_| "Unable to read error response".to_string());
             return Err(ServiceError::Network(format!(
-                "Create sponsor transaction request failed with status {}: {}",
+                "Sponsor transaction request failed with status {}: {}",
                 status, error_body
             )));
         }

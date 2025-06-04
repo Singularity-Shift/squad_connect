@@ -58,7 +58,7 @@ pub struct AccountResponse {
     pub public_key: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorTransactionPayload {
     network: String,
