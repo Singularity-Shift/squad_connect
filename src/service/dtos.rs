@@ -1,5 +1,6 @@
-use std::fmt;
+use fastcrypto::encoding::Base64;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum Network {
@@ -13,6 +14,8 @@ pub enum EnokiEndpoints {
     Nonce,
     Address,
     ZkProof,
+    CreateSponsorTransaction,
+    SubmitSponsorTransaction(String),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -55,6 +58,35 @@ pub struct AccountResponse {
     pub public_key: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SponsorTransactionPayload {
+    network: String,
+    transaction_block_kind_bytes: Base64,
+    sender: String,
+    allowed_addresses: Vec<String>,
+    allowed_move_call_targets: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SponsorTransactionResponse {
+    pub digest: String,
+    pub bytes: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitSponsorTransactionPayload {
+    signature: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitSponsorTransactionResponse {
+    pub digest: String,
+}
+
 impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -74,16 +106,22 @@ impl From<String> for Network {
             _ => Network::Testnet, // Default to testnet for unknown values
         }
     }
-} 
+}
 
 impl fmt::Display for EnokiEndpoints {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let base_url = String::from("https://api.enoki.mystenlabs.com/v1/zklogin");
+        let base_url = String::from("https://api.enoki.mystenlabs.com/v1");
 
-        match *self {
-            EnokiEndpoints::Nonce => write!(f, "{}/nonce", base_url),
-            EnokiEndpoints::Address => write!(f, "{}", base_url),
-            EnokiEndpoints::ZkProof => write!(f, "{}/zkp", base_url),
+        match self {
+            EnokiEndpoints::Nonce => write!(f, "{}/zklogin/nonce", base_url),
+            EnokiEndpoints::Address => write!(f, "{}/zklogin/address", base_url),
+            EnokiEndpoints::ZkProof => write!(f, "{}/zklogin/zkp", base_url),
+            EnokiEndpoints::CreateSponsorTransaction => {
+                write!(f, "{}/transaction-blocks/sponsor", base_url)
+            }
+            EnokiEndpoints::SubmitSponsorTransaction(digest) => {
+                write!(f, "{}/transaction-blocks/sponsor/{}", base_url, digest)
+            }
         }
     }
 }
@@ -110,5 +148,33 @@ impl From<(String, String, u64, String)> for ZKPPayload {
             max_epoch,
             randomness,
         }
+    }
+}
+
+impl From<(String, Base64, String, Vec<String>, Vec<String>)> for SponsorTransactionPayload {
+    fn from(
+        sponsor_transaction_payload: (String, Base64, String, Vec<String>, Vec<String>),
+    ) -> Self {
+        let (
+            network,
+            transaction_block_kind_bytes,
+            sender,
+            allowed_addresses,
+            allowed_move_call_targets,
+        ) = sponsor_transaction_payload;
+
+        SponsorTransactionPayload {
+            network,
+            transaction_block_kind_bytes,
+            sender,
+            allowed_addresses,
+            allowed_move_call_targets,
+        }
+    }
+}
+
+impl From<String> for SubmitSponsorTransactionPayload {
+    fn from(signature: String) -> Self {
+        SubmitSponsorTransactionPayload { signature }
     }
 }

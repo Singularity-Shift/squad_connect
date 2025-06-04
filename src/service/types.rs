@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use serde::{Deserialize, Serialize};
-use sui_sdk::types::base_types::SuiAddress;
+use sui_sdk::types::{base_types::SuiAddress, transaction::Transaction};
 use thiserror::Error;
 
-use super::dtos::{AccountResponse, Network};
+use super::dtos::{AccountResponse, SponsorTransactionResponse, SubmitSponsorTransactionResponse};
 
 #[derive(Error, Debug)]
 pub enum ServiceError {
@@ -43,16 +43,20 @@ pub trait GoogleOauthProvider {
         &self,
         callback_url: &str,
     ) -> Result<Option<T>>;
-    fn get_sui_address(&self, address_seed: ZkLoginInputs) -> SuiAddress;
-    fn set_zk_proof_params(
-        &mut self,
-        network: Network,
-        public_key: String,
-        max_epoch: u64,
-        randomness: String,
-    );
-    fn get_zk_proof_params(&self) -> (Network, String, u64, String);
     async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs>;
     async fn get_account(&self, jwt: &str) -> Result<AccountResponse>;
     async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()>;
+    async fn create_sponsor_transaction(
+        &mut self,
+        transaction: Transaction,
+        sender: SuiAddress,
+        allowed_addresses: Vec<String>,
+        allowed_move_call_targets: Vec<String>,
+    ) -> Result<SponsorTransactionResponse>;
+
+    async fn submit_sponsor_transaction(
+        &mut self,
+        digest: String,
+        signature: String,
+    ) -> Result<SubmitSponsorTransactionResponse>;
 }

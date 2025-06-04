@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use super::{
     dtos::{
         AccountResponse, EnokiEndpoints, Network, NoncePayload, NonceResponse, ResponseData,
-        ZKPPayload,
+        SponsorTransactionPayload, SponsorTransactionResponse, SubmitSponsorTransactionPayload,
+        SubmitSponsorTransactionResponse, ZKPPayload,
     },
     types::{GoogleOauthProvider, Result, ServiceError},
 };
@@ -20,10 +21,8 @@ use sui_sdk::{
     SuiClient,
     types::{
         base_types::SuiAddress,
-        crypto::{
-            AccountKeyPair, EncodeDecodeBase64, KeypairTraits, PublicKey, SuiKeyPair,
-            ZkLoginPublicIdentifier,
-        },
+        crypto::{AccountKeyPair, EncodeDecodeBase64, KeypairTraits, SuiKeyPair},
+        transaction::Transaction,
     },
 };
 
@@ -165,28 +164,6 @@ impl GoogleOauthProvider for Services {
         Ok(())
     }
 
-    fn set_zk_proof_params(
-        &mut self,
-        network: Network,
-        public_key: String,
-        max_epoch: u64,
-        randomness: String,
-    ) {
-        self.network = network;
-        self.public_key = public_key;
-        self.max_epoch = max_epoch;
-        self.randomness = randomness;
-    }
-
-    fn get_zk_proof_params(&self) -> (Network, String, u64, String) {
-        (
-            self.network.clone(),
-            self.public_key.clone(),
-            self.max_epoch,
-            self.randomness.clone(),
-        )
-    }
-
     async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
@@ -230,14 +207,6 @@ impl GoogleOauthProvider for Services {
             .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
 
         Ok(zkp_data.data)
-    }
-
-    fn get_sui_address(&self, zklogin: ZkLoginInputs) -> SuiAddress {
-        let pk = PublicKey::ZkLogin(
-            ZkLoginPublicIdentifier::new(zklogin.get_iss(), zklogin.get_address_seed()).unwrap(),
-        );
-
-        SuiAddress::from(&pk)
     }
 
     fn extract_state_from_callback<T: for<'de> Deserialize<'de>>(
@@ -301,5 +270,77 @@ impl GoogleOauthProvider for Services {
             .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
 
         Ok(account_data.data)
+    }
+
+    async fn create_sponsor_transaction(
+        &mut self,
+        transaction: Transaction,
+        sender: SuiAddress,
+        allowed_addresses: Vec<String>,
+        allowed_move_call_targets: Vec<String>,
+    ) -> Result<SponsorTransactionResponse> {
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+
+        let (tx_bytes, _signatures) = transaction.to_tx_bytes_and_signatures();
+
+        let sponsor_transaction_payload = SponsorTransactionPayload::from((
+            self.network.to_string(),
+            tx_bytes,
+            sender.to_string(),
+            allowed_addresses,
+            allowed_move_call_targets,
+        ));
+
+        let sponsor_transaction_response = Client::new()
+            .post(&EnokiEndpoints::CreateSponsorTransaction.to_string())
+            .headers(headers)
+            .json(&sponsor_transaction_payload)
+            .send()
+            .await
+            .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
+
+        let sponsor_transaction_data: ResponseData<SponsorTransactionResponse> =
+            sponsor_transaction_response
+                .json()
+                .await
+                .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
+
+        Ok(sponsor_transaction_data.data)
+    }
+
+    async fn submit_sponsor_transaction(
+        &mut self,
+        digest: String,
+        signature: String,
+    ) -> Result<SubmitSponsorTransactionResponse> {
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+
+        let submit_sponsor_transaction_payload = SubmitSponsorTransactionPayload::from(signature);
+
+        let submit_sponsor_transaction_response = Client::new()
+            .post(&EnokiEndpoints::SubmitSponsorTransaction(digest).to_string())
+            .headers(headers)
+            .json(&submit_sponsor_transaction_payload)
+            .send()
+            .await
+            .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
+
+        let submit_sponsor_transaction_data: ResponseData<SubmitSponsorTransactionResponse> =
+            submit_sponsor_transaction_response
+                .json()
+                .await
+                .map_err(|e| ServiceError::JwtFormat(format!("Failed json parse: {}", e)))?;
+
+        Ok(submit_sponsor_transaction_data.data)
     }
 }
