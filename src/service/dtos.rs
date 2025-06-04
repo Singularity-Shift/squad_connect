@@ -114,7 +114,7 @@ impl fmt::Display for EnokiEndpoints {
 
         match self {
             EnokiEndpoints::Nonce => write!(f, "{}/zklogin/nonce", base_url),
-            EnokiEndpoints::Address => write!(f, "{}/zklogin/address", base_url),
+            EnokiEndpoints::Address => write!(f, "{}/zklogin", base_url),
             EnokiEndpoints::ZkProof => write!(f, "{}/zklogin/zkp", base_url),
             EnokiEndpoints::CreateSponsorTransaction => {
                 write!(f, "{}/transaction-blocks/sponsor", base_url)
