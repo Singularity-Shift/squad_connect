@@ -6472,7 +6472,7 @@ dependencies = [
 
 [[package]]
 name = "squad_connect"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "async-trait",
  "base64 0.22.1",

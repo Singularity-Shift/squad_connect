@@ -318,6 +318,18 @@ impl GoogleOauthProvider for Services {
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
 
+        if !sponsor_transaction_response.status().is_success() {
+            let status = sponsor_transaction_response.status();
+            let error_body = sponsor_transaction_response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(ServiceError::Network(format!(
+                "Create sponsor transaction request failed with status {}: {}",
+                status, error_body
+            )));
+        }
+
         let sponsor_transaction_data: ResponseData<SponsorTransactionResponse> =
             sponsor_transaction_response
                 .json()
@@ -348,6 +360,18 @@ impl GoogleOauthProvider for Services {
             .send()
             .await
             .map_err(|e| ServiceError::Network(format!("Failed to send request: {}", e)))?;
+
+        if !submit_sponsor_transaction_response.status().is_success() {
+            let status = submit_sponsor_transaction_response.status();
+            let error_body = submit_sponsor_transaction_response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(ServiceError::Network(format!(
+                "Submit sponsor transaction request failed with status {}: {}",
+                status, error_body
+            )));
+        }
 
         let submit_sponsor_transaction_data: ResponseData<SubmitSponsorTransactionResponse> =
             submit_sponsor_transaction_response
