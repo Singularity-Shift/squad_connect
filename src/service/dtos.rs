@@ -1,4 +1,3 @@
-use fastcrypto::encoding::Base64;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -62,7 +61,7 @@ pub struct AccountResponse {
 #[serde(rename_all = "camelCase")]
 pub struct SponsorTransactionPayload {
     network: String,
-    transaction_block_kind_bytes: Base64,
+    transaction_block_kind_bytes: String,
     sender: String,
     allowed_addresses: Vec<String>,
     allowed_move_call_targets: Vec<String>,
@@ -151,9 +150,9 @@ impl From<(String, String, u64, String)> for ZKPPayload {
     }
 }
 
-impl From<(String, Base64, String, Vec<String>, Vec<String>)> for SponsorTransactionPayload {
+impl From<(String, String, String, Vec<String>, Vec<String>)> for SponsorTransactionPayload {
     fn from(
-        sponsor_transaction_payload: (String, Base64, String, Vec<String>, Vec<String>),
+        sponsor_transaction_payload: (String, String, String, Vec<String>, Vec<String>),
     ) -> Self {
         let (
             network,

@@ -9,6 +9,7 @@ use super::{
     types::{GoogleOauthProvider, Result, ServiceError},
 };
 use async_trait::async_trait;
+use base64::{Engine, engine::general_purpose};
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use jwt_simple::reexports::rand::{Rng, SeedableRng, rngs::StdRng, thread_rng};
 use reqwest::{
@@ -22,7 +23,7 @@ use sui_sdk::{
     types::{
         base_types::SuiAddress,
         crypto::{AccountKeyPair, EncodeDecodeBase64, KeypairTraits, SuiKeyPair},
-        transaction::Transaction,
+        transaction::{TransactionData, TransactionDataAPI},
     },
 };
 
@@ -288,7 +289,7 @@ impl GoogleOauthProvider for Services {
 
     async fn create_sponsor_transaction(
         &mut self,
-        transaction: Transaction,
+        transaction: TransactionData,
         sender: SuiAddress,
         allowed_addresses: Vec<String>,
         allowed_move_call_targets: Vec<String>,
@@ -300,11 +301,17 @@ impl GoogleOauthProvider for Services {
             HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
         );
 
-        let (tx_bytes_base64, _signatures) = transaction.to_tx_bytes_and_signatures();
+        let transaction_kind = transaction.kind();
+
+        let transaction_bytes = bcs::to_bytes(&transaction_kind).map_err(|e| {
+            ServiceError::InvalidResponse(format!("Failed to serialize transaction: {}", e))
+        })?;
+
+        let transaction_base64 = general_purpose::STANDARD.encode(&transaction_bytes);
 
         let sponsor_transaction_payload = SponsorTransactionPayload::from((
             self.network.to_string(),
-            tx_bytes_base64,
+            transaction_base64,
             sender.to_string(),
             allowed_addresses,
             allowed_move_call_targets,

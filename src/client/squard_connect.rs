@@ -118,7 +118,7 @@ impl SquardConnect {
 
     pub async fn sponsor_transaction(
         &mut self,
-        tx: Transaction,
+        tx: TransactionData,
         sender: SuiAddress,
         allowed_addresses: Vec<String>,
         allowed_move_call_targets: Vec<String>,

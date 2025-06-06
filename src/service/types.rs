@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 use fastcrypto_zkp::bn254::zk_login::ZkLoginInputs;
 use serde::{Deserialize, Serialize};
-use sui_sdk::types::{base_types::SuiAddress, transaction::Transaction};
+use sui_sdk::types::{base_types::SuiAddress, transaction::TransactionData};
 use thiserror::Error;
 
 use super::dtos::{AccountResponse, SponsorTransactionResponse, SubmitSponsorTransactionResponse};
@@ -48,7 +48,7 @@ pub trait GoogleOauthProvider {
     async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()>;
     async fn create_sponsor_transaction(
         &mut self,
-        transaction: Transaction,
+        transaction: TransactionData,
         sender: SuiAddress,
         allowed_addresses: Vec<String>,
         allowed_move_call_targets: Vec<String>,

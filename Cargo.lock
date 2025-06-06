@@ -6476,6 +6476,7 @@ version = "0.1.13"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
+ "bcs",
  "ed25519-dalek",
  "fastcrypto",
  "fastcrypto-zkp",
