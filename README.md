@@ -128,6 +128,8 @@ async fn sign_transaction_example() -> Result<(), Box<dyn std::error::Error>> {
 
 ### 4. Sponsor Transaction (Gasless)
 
+> ⚠️ **Note**: There is currently a known issue with sponsor transactions. See [GitHub Issue #22306](https://github.com/MystenLabs/sui/issues/22306) for updates. This functionality is work in progress.
+
 ```rust
 use sui_sdk::types::base_types::SuiAddress;
 
@@ -261,7 +263,7 @@ export NETWORK="testnet"  # or "mainnet", "devnet"
 
 #### Transaction Management
 - `sign_transaction(...) -> Result<Transaction>` - Sign transaction with zkLogin
-- `sponsor_transaction(...) -> Result<String>` - Submit gasless transaction
+- `sponsor_transaction(...) -> Result<String>` - Submit gasless transaction ⚠️ *Currently has known issues - see [Issue #22306](https://github.com/MystenLabs/sui/issues/22306)*
 
 #### Utilities
 - `extract_state_from_callback<T>(url: &str) -> Result<Option<T>>` - Extract OAuth state
@@ -302,5 +304,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 - 📖 [Documentation](https://docs.sui.io/)
-- 💬 [Discord Community](https://discord.gg/sui)
-- 🐛 [Issue Tracker](https://github.com/your-repo/squad-connect/issues)
+- 💬 [Discord Community](https://discord.gg/HxBkRbsH49)
+- 📱 [Telegram Support](https://t.me/LedgerEmoji)
+- 🐛 [Issue Tracker](https://github.com/Singularity-Shift/squad-connect/issues)
