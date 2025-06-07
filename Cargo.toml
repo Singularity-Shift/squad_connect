@@ -1,6 +1,6 @@
 [package]
-name = "squard_connect"
-version = "0.1.13"
+name = "squad_connect"
+version = "0.1.14"
 edition = "2024"
 
 [dependencies]
