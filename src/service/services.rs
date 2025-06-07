@@ -26,19 +26,75 @@ use sui_sdk::{
     },
 };
 
+/// Squad Connect Services
+///
+/// This module provides core services for Sui blockchain integration with zkLogin authentication.
+/// It handles OAuth flows, JWT processing, ZK proof generation, and transaction management.
+///
+/// # Features
+/// - Google OAuth 2.0 integration
+/// - Zero-knowledge proof generation for authentication  
+/// - Account management and address derivation
+/// - Transaction signing and sponsor transaction support
+/// - Automatic error handling with detailed error messages
+///
+/// # Example
+/// ```rust
+/// use squad_connect::service::services::Services;
+/// use squad_connect::service::dtos::Network;
+/// use sui_sdk::SuiClientBuilder;
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let sui_client = SuiClientBuilder::default().build_testnet().await?;
+///     let services = Services::new(
+///         sui_client,
+///         Network::Testnet,
+///         "your-api-key".to_string(),
+///         "your-google-client-id".to_string(),
+///     );
+///     Ok(())
+/// }
+/// ```
+
 #[derive(Clone)]
 pub struct Services {
+    /// Sui blockchain client for network operations
     node: SuiClient,
+    /// Target network (Devnet, Testnet, or Mainnet)
     network: Network,
+    /// Enoki API key for zkLogin services
     api_key: String,
+    /// Google OAuth client ID
     client_id: String,
+    /// Random value for ZK proof generation
     randomness: String,
+    /// Ephemeral public key for zkLogin
     public_key: String,
+    /// Maximum epoch for proof validity
     max_epoch: u64,
+    /// OAuth nonce for authentication
     nonce: String,
 }
 
 impl Services {
+    /// Creates a new Services instance
+    ///
+    /// # Arguments
+    /// * `node` - Sui client for blockchain operations
+    /// * `network` - Target network (Devnet, Testnet, Mainnet)
+    /// * `api_key` - Enoki API key for zkLogin services
+    /// * `client_id` - Google OAuth client ID
+    ///
+    /// # Example
+    /// ```rust
+    /// let services = Services::new(
+    ///     sui_client,
+    ///     Network::Testnet,
+    ///     "your-api-key".to_string(),
+    ///     "your-google-client-id".to_string(),
+    /// );
+    /// ```
     pub fn new(node: SuiClient, network: Network, api_key: String, client_id: String) -> Self {
         Self {
             node,
@@ -52,6 +108,10 @@ impl Services {
         }
     }
 
+    /// Returns a reference to the Sui client
+    ///
+    /// # Returns
+    /// Reference to the SuiClient for direct blockchain operations
     pub fn get_node(&self) -> &SuiClient {
         &self.node
     }
@@ -59,6 +119,26 @@ impl Services {
 
 #[async_trait]
 impl GoogleOauthProvider for Services {
+    /// Generates OAuth URL for Google authentication with zkLogin
+    ///
+    /// Creates an ephemeral key pair, generates a nonce, and builds the Google OAuth URL
+    /// for zkLogin authentication flow.
+    ///
+    /// # Arguments
+    /// * `redirect_url` - URL where Google will redirect after authentication
+    /// * `state` - Optional state parameter to maintain across the OAuth flow
+    ///
+    /// # Returns
+    /// Google OAuth URL that user should visit to authenticate
+    ///
+    /// # Example
+    /// ```rust
+    /// let oauth_url = services.get_oauth_url(
+    ///     "http://localhost:3000/callback".to_string(),
+    ///     Some("my_custom_state".to_string())
+    /// ).await?;
+    /// println!("Visit: {}", oauth_url);
+    /// ```
     async fn get_oauth_url<T: Send + Serialize>(
         &mut self,
         redirect_url: String,
@@ -92,6 +172,22 @@ impl GoogleOauthProvider for Services {
         Ok(google_url.to_string())
     }
 
+    /// Extracts JWT token from OAuth callback URL
+    ///
+    /// Parses the callback URL from Google OAuth and extracts the id_token parameter
+    /// which contains the JWT needed for zkLogin proof generation.
+    ///
+    /// # Arguments  
+    /// * `callback_url` - The full callback URL from Google OAuth redirect
+    ///
+    /// # Returns
+    /// The JWT token string extracted from the callback URL
+    ///
+    /// # Example
+    /// ```rust
+    /// let callback = "http://localhost:3000/callback#id_token=eyJ...&state=abc";
+    /// let jwt = services.extract_jwt_from_callback(callback)?;
+    /// ```
     fn extract_jwt_from_callback(&self, callback_url: &str) -> Result<String> {
         // Parse the callback URL
         let url = url::Url::parse(callback_url).map_err(|e| {
@@ -110,6 +206,25 @@ impl GoogleOauthProvider for Services {
         Ok(id_token)
     }
 
+    /// Creates ephemeral keypair and generates nonce for zkLogin
+    ///
+    /// This method initializes the zkLogin parameters by:
+    /// 1. Generating an ephemeral key pair
+    /// 2. Storing it in the provided keystore
+    /// 3. Requesting a nonce from Enoki API
+    /// 4. Setting up all parameters needed for zkLogin flow
+    ///
+    /// # Arguments
+    /// * `path` - Path to the keystore directory where ephemeral keys will be stored
+    ///
+    /// # Returns
+    /// Result indicating success or failure of the setup process
+    ///
+    /// # Example
+    /// ```rust
+    /// let keystore_path = PathBuf::from("./keystore");
+    /// services.create_zkp_payload(keystore_path).await?;
+    /// ```
     async fn create_zkp_payload(&mut self, path: PathBuf) -> Result<()> {
         let ephemeral_key_pair = {
             let mut seed = [0u8; 32];
@@ -164,6 +279,22 @@ impl GoogleOauthProvider for Services {
         Ok(())
     }
 
+    /// Generates zero-knowledge proof for authentication
+    ///
+    /// Takes a JWT token and generates a zero-knowledge proof that can be used
+    /// to authenticate with the Sui blockchain without revealing sensitive information.
+    ///
+    /// # Arguments
+    /// * `jwt` - JWT token received from Google OAuth
+    ///
+    /// # Returns
+    /// ZkLoginInputs containing the proof and necessary parameters
+    ///
+    /// # Example
+    /// ```rust
+    /// let zk_inputs = services.zk_proof(&jwt_token).await?;
+    /// println!("ZK proof generated successfully");
+    /// ```
     async fn zk_proof(&self, jwt: &str) -> Result<ZkLoginInputs> {
         // Validate the JWT and extract claims
         let mut headers = HeaderMap::new();
@@ -286,6 +417,29 @@ impl GoogleOauthProvider for Services {
         self.max_epoch = max_epoch;
     }
 
+    /// Creates a sponsor transaction for gasless execution
+    ///
+    /// Submits a transaction to be sponsored by a third party, allowing users
+    /// to execute transactions without paying gas fees directly.
+    ///
+    /// # Arguments
+    /// * `transaction` - The transaction to be sponsored
+    /// * `sender` - Address of the transaction sender
+    /// * `allowed_addresses` - List of addresses allowed to interact with
+    /// * `allowed_move_call_targets` - List of allowed Move function calls
+    ///
+    /// # Returns
+    /// SponsorTransactionResponse containing digest and transaction bytes
+    ///
+    /// # Example
+    /// ```rust
+    /// let response = services.create_sponsor_transaction(
+    ///     transaction,
+    ///     sender_address,
+    ///     vec!["0x123...".to_string()],
+    ///     vec!["0xabc::module::function".to_string()],
+    /// ).await?;
+    /// ```
     async fn create_sponsor_transaction(
         &mut self,
         transaction: Transaction,
