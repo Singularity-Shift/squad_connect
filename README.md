@@ -307,3 +307,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 💬 [Discord Community](https://discord.gg/HxBkRbsH49)
 - 📱 [Telegram Support](https://t.me/LedgerEmoji)
 - 🐛 [Issue Tracker](https://github.com/Singularity-Shift/squad-connect/issues)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
