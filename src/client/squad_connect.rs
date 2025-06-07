@@ -22,12 +22,12 @@ use sui_sdk::{
 use crate::service::dtos::Network;
 
 #[derive(Clone)]
-pub struct SquardConnect {
+pub struct SquadConnect {
     services: Services,
     jwt: String,
 }
 
-impl SquardConnect {
+impl SquadConnect {
     pub fn new(node: SuiClient, client_id: String, network: Network, api_key: String) -> Self {
         let services = Services::new(node, network, api_key, client_id);
         Self {

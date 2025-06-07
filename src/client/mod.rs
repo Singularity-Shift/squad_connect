@@ -1,1 +1,1 @@
-pub mod squard_connect;
+pub mod squad_connect;
